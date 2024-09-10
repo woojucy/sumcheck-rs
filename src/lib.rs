@@ -1,59 +1,67 @@
 use rand::Rng;
 use std::collections::HashMap;
 
-/// Function to generate a random polynomial with `num_variables` variables
-fn generate_random_polynomial(num_variables: usize) -> impl Fn(&[i32]) -> i32 {
-    let mut rng = rand::thread_rng();
-    
-    // Maximum degree for any variable
-    let max_degree = 3;
+/// Struct to represent a single term in a polynomial
+#[derive(Debug, Clone)]
+struct Term {
+    coefficient: i32,
+    exponents: HashMap<usize, usize>,  // Map of variable index to exponent
+}
 
-    // Create a list of terms, each term is a map where the key is a variable index, and the value is the degree of that variable
-    let num_terms = rng.gen_range(1..=5); // Number of terms in the polynomial (random between 1 and 5)
-    let mut terms: Vec<HashMap<usize, usize>> = Vec::new();
-    
-    // Generate random terms
-    for _ in 0..num_terms {
-        let mut term: HashMap<usize, usize> = HashMap::new();
-        
-        // Randomly decide how many variables this term will include
-        let num_vars_in_term = rng.gen_range(1..=num_variables);
-        let vars_in_term = rand::seq::index::sample(&mut rng, num_variables, num_vars_in_term).into_vec();
-
-        // Assign random degrees to each variable in the term
-        for &var_index in vars_in_term.iter() {
-            let degree = rng.gen_range(1..=max_degree);
-            term.insert(var_index, degree);
+impl Term {
+    /// Evaluate the term for the given variables
+    fn evaluate(&self, variables: &[i32]) -> i32 {
+        let mut result = self.coefficient;
+        for (&var_index, &degree) in &self.exponents {
+            result *= variables[var_index].pow(degree as u32);
         }
-        terms.push(term);
-    }
-
-    // Create random coefficients for each term
-    let coefficients: Vec<i32> = (0..num_terms).map(|_| rng.gen_range(1..10)).collect();
-
-    // Define the polynomial evaluation function
-    move |vars: &[i32]| -> i32 {
-        let mut result = 0;
-
-        for (term, &coeff) in terms.iter().zip(coefficients.iter()) {
-            let mut term_value = coeff;
-
-            // Multiply each variable raised to its respective degree
-            for (&var_index, &degree) in term {
-                term_value *= vars[var_index].pow(degree as u32);
-            }
-
-            result += term_value;
-        }
-
         result
     }
 }
 
+/// Struct to represent a polynomial
+#[derive(Debug, Clone)]
+struct Polynomial {
+    terms: Vec<Term>,  // A polynomial consists of multiple terms
+}
+
+impl Polynomial {
+    /// Evaluate the polynomial for the given set of variable assignments
+    fn evaluate(&self, variables: &[i32]) -> i32 {
+        self.terms.iter().map(|term| term.evaluate(variables)).sum()
+    }
+}
+
+/// Function to generate a random polynomial with `num_variables` variables
+fn generate_random_polynomial(num_variables: usize) -> Polynomial {
+    let mut rng = rand::thread_rng();
+    let max_degree = 3;  // Maximum degree for any variable
+    let num_terms = rng.gen_range(1..=5);  // Random number of terms between 1 and 5
+    let mut terms = Vec::new();
+
+    // Generate random terms
+    for _ in 0..num_terms {
+        let mut exponents = HashMap::new();
+        let num_vars_in_term = rng.gen_range(1..=num_variables);
+        let vars_in_term = rand::seq::index::sample(&mut rng, num_variables, num_vars_in_term).into_vec();
+        for &var_index in &vars_in_term {
+            let degree = rng.gen_range(1..=max_degree);
+            exponents.insert(var_index, degree);
+        }
+        let coefficient = rng.gen_range(1..10);  // Random coefficient between 1 and 9
+        terms.push(Term {
+            coefficient,
+            exponents,
+        });
+    }
+
+    Polynomial { terms }
+}
+
 /// Prover struct
 struct Prover {
-    polynomial: Box<dyn Fn(&[i32]) -> i32>,  // The polynomial function
-    num_variables: usize,                    // Number of variables in the polynomial
+    polynomial: Polynomial,  // The polynomial function
+    num_variables: usize,     // Number of variables in the polynomial
 }
 
 impl Prover {
@@ -61,7 +69,7 @@ impl Prover {
     fn new(num_variables: usize) -> Self {
         let polynomial = generate_random_polynomial(num_variables);
         Prover {
-            polynomial: Box::new(polynomial),
+            polynomial,
             num_variables,
         }
     }
@@ -74,7 +82,7 @@ impl Prover {
     /// Recursively evaluate the sum of all possible inputs
     fn sum_recursive(&self, depth: usize, current_input: &mut Vec<i32>) -> i32 {
         if depth == self.num_variables {
-            return (self.polynomial)(current_input);
+            return self.polynomial.evaluate(current_input);
         }
         let mut sum = 0;
         for x in 0..=1 {  // Binary variables (0 or 1)
@@ -86,7 +94,7 @@ impl Prover {
 
     /// Prover evaluates the polynomial for a given input
     fn evaluate_polynomial(&self, input: &[i32]) -> i32 {
-        (self.polynomial)(input)
+        self.polynomial.evaluate(input)
     }
 }
 
