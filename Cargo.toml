@@ -10,3 +10,4 @@ name = "sumcheck"
 path = "src/lib.rs" # lib.rs 
 
 [dependencies]
+rand = "0.8"
