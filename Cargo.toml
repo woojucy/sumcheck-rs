@@ -8,6 +8,7 @@ edition = "2021"
 [lib]
 name = "sumcheck"
 path = "src/lib.rs" # lib.rs 
+doctest = false
 
 [dependencies]
 rand = "0.8"
