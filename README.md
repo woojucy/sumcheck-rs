@@ -1,4 +1,3 @@
-```markdown
 # Sumcheck Protocol Implementation
 
 This project implements a simplified version of the **Sumcheck Protocol** using randomly generated multivariate polynomials. The protocol involves a **Prover** that generates and evaluates a polynomial, and a **Verifier** that checks the correctness of the Prover's computations. The core functionality includes generating random polynomials, evaluating them, reducing multivariate polynomials to univariate polynomials, and verifying the sum over all possible inputs.
