@@ -5,6 +5,7 @@ use std::fmt;
 // Define the maximum degree for any variable and maximum coefficient value as constants
 const MAX_DEGREE: usize = 2; // Maximum degree for any variable
 const MAX_COEFFICIENT: i32 = 3;
+const PRIME: i32 = 7; // Set a prime number for modular arithmetic
 
 /// Struct to represent a single term in a polynomial
 #[derive(Debug, Clone)]
@@ -19,6 +20,7 @@ impl Term {
         let mut result = self.coefficient;
         for (&var_index, &degree) in &self.exponents {
             result *= variables[var_index].pow(degree as u32);
+            result %= PRIME; // Apply mod PRIME to the result
         }
         result
     }
@@ -44,7 +46,7 @@ struct Polynomial {
 impl Polynomial {
     /// Evaluate the polynomial for the given set of variable assignments
     fn evaluate(&self, variables: &[i32]) -> i32 {
-        self.terms.iter().map(|term| term.evaluate(variables)).sum()
+        self.terms.iter().map(|term| term.evaluate(variables)).fold(0, |acc, x| (acc + x) % PRIME)
     }
 }
 
@@ -80,7 +82,7 @@ fn generate_random_polynomial(num_variables: usize) -> Polynomial {
             used_vars[var_index] = true;  // Mark the variable as used
         }
 
-        let coefficient = rng.gen_range(1..=MAX_COEFFICIENT);  // Random coefficient between 1 and MAX_COEFFICIENT
+        let coefficient = rng.gen_range(0..PRIME);  // Random coefficient between 0 and PRIME-1
         terms.push(Term {
             coefficient,
             exponents,
@@ -102,7 +104,6 @@ fn generate_random_polynomial(num_variables: usize) -> Polynomial {
             });
         }
     }
-
     Polynomial { terms }
 }
 
@@ -138,13 +139,14 @@ impl Prover {
                 // Iterate over the exponents in the term
                 for (var_index, degree) in &term.exponents {
                     if *var_index == variable_index {
-                        // If the variable matches the fixed variable (x1), substitute its value (binary_value)
+                        // Substitute the binary value and apply mod PRIME
                         new_coefficient *= (binary_value as i32).pow(*degree as u32);
-                        new_term.exponents.remove(var_index);  // Remove the fixed variable (x1)
+                        new_coefficient %= PRIME;  // Apply mod PRIME
+                        new_term.exponents.remove(var_index);  // Remove the fixed variable
                     }
                 }
     
-                new_term.coefficient = new_coefficient;
+                new_term.coefficient = new_coefficient % PRIME;
     
                 // Only add the term if the resulting coefficient is not zero
                 if new_term.coefficient != 0 {
@@ -155,7 +157,7 @@ impl Prover {
             // Sum the terms with the same exponents
             for temp_term in temp_terms {
                 if let Some(existing_term) = reduced_terms.iter_mut().find(|t| t.exponents == temp_term.exponents) {
-                    existing_term.coefficient += temp_term.coefficient;
+                    existing_term.coefficient = (existing_term.coefficient + temp_term.coefficient) % PRIME;
                 } else {
                     reduced_terms.push(temp_term);
                 }
@@ -186,6 +188,7 @@ impl Prover {
         // Evaluate the polynomial for each combination of inputs and sum the results
         for input in combinations {
             sum += self.polynomial.evaluate(&input);
+            sum %= PRIME;  // Apply mod PRIME to the sum
         }
 
         sum
@@ -231,25 +234,10 @@ impl Verifier {
     /// and stores it in the challenge_values list
     fn choose_challenge(&mut self) -> i32 {
         let mut rng = rand::thread_rng();
-        let challenge_value = rng.gen_range(0..=1);  // Randomly select 0 or 1
+        let challenge_value = rng.gen_range(0..=PRIME);  // Randomly select 0 or 1
         self.challenge_values.push(challenge_value);  // Save the chosen challenge value
         challenge_value
     }
-
-    // /// Verifies the polynomial received from the Prover by evaluating it at 0 and 1
-    // /// Checks if the sum of the polynomial evaluated at 0 and 1 matches the expected sum
-    // fn verify_polynomial(&self, polynomial: &Polynomial) -> bool {
-    //     let sum_at_0 = polynomial.evaluate(&vec![0; 1]);  // Evaluate the polynomial at 0
-    //     let sum_at_1 = polynomial.evaluate(&vec![1; 1]);  // Evaluate the polynomial at 1
-
-    //     let verified = sum_at_0 + sum_at_1 == self.expected_sum;
-    //     println!(
-    //         "Verifier checks reduced polynomial, evaluated at 0: {}, at 1: {}",
-    //         sum_at_0, sum_at_1
-    //     );
-
-    //     verified
-    // }
 
     fn verify_polynomial(&self, polynomial: &Polynomial) -> bool {
         // Create vectors with 0s and 1s for all variables

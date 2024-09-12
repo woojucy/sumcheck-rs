@@ -181,4 +181,3 @@ After making the changes, re-run the tests to see the updated behavior.
 ## Conclusion
 
 This project provides a simplified implementation of the Sumcheck Protocol using randomly generated multivariate polynomials. The Prover and Verifier interact through polynomial evaluation and sum verification, demonstrating the fundamental principles of the protocol. The project is easily configurable via global constants, allowing for quick adjustments to polynomial complexity.
-```
