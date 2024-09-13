@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 use std::fmt;
-
-const PRIME: i32 = 7; // Set a prime number for modular arithmetic
+use crate::utils::*;
 
 #[derive(Debug, Clone)]
 pub struct Term {
     pub coefficient: i32,
-    pub exponents: HashMap<usize, usize>,  // Map of variable index to exponent
+    pub exponents: HashMap<usize, i32>,  // Map of variable index to exponent
 }
 
 impl Term {
