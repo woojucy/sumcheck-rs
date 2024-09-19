@@ -1,111 +1,123 @@
-use crate::term::Term;
-use crate::polynomial::Polynomial;
-use crate::verifier::Verifier;
-use crate::utils::*;
+use crate::{polynomial::generate_random_polynomial, verifier::Verifier};
+use ark_ff::Field;
+use ark_poly::{
+    multivariate::{SparsePolynomial, SparseTerm, Term},
+    univariate::SparsePolynomial as UniSparsePolynomial,
+    DenseMVPolynomial, Polynomial,
+};
+use rand::{thread_rng, Rng};
 
-pub struct Prover {
-    pub polynomial: Polynomial,  // The polynomial function
-    pub num_variables: usize,     // Number of variables in the polynomial
+pub struct Prover<F: Field> {
+    pub polynomial: SparsePolynomial<F, SparseTerm>,
+    pub num_variables: usize,
+    pub steps: Vec<F>,
 }
 
-impl Prover {
+impl<F: Field> Prover<F> {
     /// Create a new Prover with a randomly generated polynomial
-    pub fn new(num_variables: usize) -> Self {
-        let polynomial = generate_random_polynomial(num_variables);
+    pub fn new(num_variables: usize, max_degree: usize) -> Self {
+        let polynomial = generate_random_polynomial(num_variables, max_degree);
         Prover {
             polynomial,
             num_variables,
+            steps: Vec::new(),
         }
     }
-    /// Provides a public interface for interacting with the Verifier
-    pub fn interact_with_verifier(&self, verifier: &Verifier, variable_index: usize) -> Polynomial {
-        self.send_polynomial(verifier, variable_index)
-    }
 
-    fn reduce_to_univariate(&self, variable_index: usize, verifier: &Verifier) -> Polynomial {
-        let mut reduced_terms: Vec<Term> = Vec::new();
-    
+    fn reduce_to_univariate(&mut self, step: usize, randoms: Vec<F>) -> UniSparsePolynomial<F> {
+        let random: F = match randoms.get(step) {
+            Some(&value) => value,
+            None => panic!("Index out of bounds: step value is {}, but randoms length is {}", step, randoms.len()),
+        };
+        self.steps.push(random);
+        let mut reduced_terms = Vec::new();
+
         // Handle the two cases: when the challenged variable is 0 and 1
-        for binary_value in [0, 1] {
-            // Temporary terms for this specific binary value of x1
+        for binary_value in [F::zero(), F::one()] {
             let mut temp_terms = Vec::new();
-    
+
             // Iterate over each term in the polynomial
-            for term in &self.polynomial.terms {
-                let mut new_term = term.clone();
-                let mut new_coefficient = new_term.coefficient;
-    
-                // Iterate over the exponents in the term
-                for (var_index, degree) in &term.exponents {
-                    if *var_index == variable_index {
-                        // Substitute the binary value and apply mod PRIME
-                        new_coefficient *= (binary_value as i32).pow(*degree as u32);
-                        new_coefficient %= PRIME;  // Apply mod PRIME
-                        new_term.exponents.remove(var_index);  // Remove the fixed variable
+            for (coeff, term) in &self.polynomial.terms {
+                let mut new_coeff = *coeff;
+                let mut degree = 0;
+
+                // Iterate over the variables in the term
+                for (var_index, var_degree) in term.iter() {
+                    if *var_index > step {
+                        degree = *var_degree; // Variable to reduce
+                        new_coeff *= binary_value.pow(&[*var_degree as u64]);
+                    } else if *var_index < step {
+                        // Multiply by random challenge for other variables
+                        new_coeff *= random.pow(&[*var_degree as u64]);
+                    } else {
+                        // Variables from future steps are ignored
+                        continue;
                     }
                 }
-    
-                new_term.coefficient = new_coefficient % PRIME;
-    
-                // Only add the term if the resulting coefficient is not zero
-                if new_term.coefficient != 0 {
-                    temp_terms.push(new_term);
+
+                if !new_coeff.is_zero() {
+                    temp_terms.push((degree, new_coeff));
                 }
             }
-    
+
             // Sum the terms with the same exponents
-            for temp_term in temp_terms {
-                if let Some(existing_term) = reduced_terms.iter_mut().find(|t| t.exponents == temp_term.exponents) {
-                    existing_term.coefficient = (existing_term.coefficient + temp_term.coefficient) % PRIME;
+            for (degree, new_coeff) in temp_terms {
+                if let Some(existing_term) = reduced_terms.iter_mut().find(|(d, _)| *d == degree) {
+                    existing_term.1 += new_coeff;
                 } else {
-                    reduced_terms.push(temp_term);
+                    reduced_terms.push((degree, new_coeff));
                 }
             }
         }
-    
-        // Return the reduced polynomial with only the terms that contain the free variable
-        Polynomial { terms: reduced_terms }
+
+        UniSparsePolynomial::from_coefficients_vec(reduced_terms)
     }
-    
 
     /// Sends the reduced univariate polynomial for the current variable to the Verifier
-    fn send_polynomial(&self, verifier: &Verifier, variable_index: usize) -> Polynomial {
-        let polynomial = self.reduce_to_univariate(variable_index, verifier);
-        println!("Prover sends reduced polynomial for variable x{}", variable_index + 1);
-        println!("Polynomial: {}", polynomial);
+    pub fn send_polynomial(
+        &mut self,
+        verifier: &Verifier<F>,
+        variable_index: usize,
+    ) -> UniSparsePolynomial<F> {
+        let polynomial =
+            self.reduce_to_univariate(variable_index, verifier.challenge_values.clone());
+        // println!("Prover sends reduced polynomial for variable x{}", variable_index + 1);
+        // println!("Polynomial: {}", polynomial);
         polynomial
     }
 
     /// Calculates the sum of the polynomial over all possible input combinations of 0 and 1
-    pub fn sum_over_all_inputs(&self) -> i32 {
-        let num_variables = self.num_variables;
-        let mut sum = 0;
-
-        // Generate all possible combinations of 0 and 1 for the variables
-        let combinations = Self::generate_combinations(num_variables);
-
-        // Evaluate the polynomial for each combination of inputs and sum the results
+    pub fn sum_over_all_inputs(&self) -> F {
+        // Generate all combinations of 0 and 1 for the number of variables
+        let combinations = Self::generate_combinations(self.num_variables);
+        
+        // Initialize the accumulator for the sum of all evaluations
+        let mut sum = F::zero();
+        
+        // Iterate over each combination of inputs (0s and 1s)
         for input in combinations {
-            sum += self.polynomial.evaluate(&input);
-            sum %= PRIME;  // Apply mod PRIME to the sum
+            // Evaluate the polynomial at the current input and add it to the sum
+            let evaluation = self.polynomial.evaluate(&input);
+            sum += evaluation;
         }
-
+        
+        // Return the final sum
         sum
     }
-
     /// Generates all combinations of 0 and 1 for a given number of variables
-    fn generate_combinations(num_variables: usize) -> Vec<Vec<i32>> {
-        let mut combinations = Vec::new();
-
-        // Iterate over all numbers from 0 to 2^num_variables - 1
-        for i in 0..(1 << num_variables) {
-            let mut combo = Vec::new();
-            for j in 0..num_variables {
-                // Extract the j-th bit from i (0 or 1)
-                combo.push((i >> j) & 1);
-            }
-            combinations.push(combo);
-        }
-        combinations
+    fn generate_combinations(num_variables: usize) -> Vec<Vec<F>> {
+        (0..(1 << num_variables))
+            .map(|i| {
+                (0..num_variables)
+                    .map(|j| {
+                        if (i >> j) & 1 == 1 {
+                            F::one()
+                        } else {
+                            F::zero()
+                        }
+                    })
+                    .collect()
+            })
+            .collect()
     }
 }

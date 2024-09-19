@@ -8,12 +8,11 @@ The project is organized into several modules, each encapsulating a specific fun
 
 ```
 /src
- ├── lib.rs             # Main library file that integrates all modules
- ├── term.rs            # Contains the Term struct and its related logic (e.g., evaluation)
- ├── polynomial.rs      # Contains the Polynomial struct and its operations
- ├── prover.rs          # Defines the Prover struct and its methods for the Sumcheck protocol
- ├── verifier.rs        # Defines the Verifier struct and its methods for challenging and verification
- └── utils.rs           # Utility functions (e.g., generating random polynomials)
+ ├── lib.rs
+ ├── prover.rs
+ ├── verifier.rs
+ ├── polynomial.rs
+ └── tests.rs
 ```
 
 ### File Descriptions

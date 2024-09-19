@@ -1,22 +1,49 @@
-use crate::term::Term;
-use std::fmt;
+use ark_ff::Field;
+use ark_poly::multivariate::{SparsePolynomial, SparseTerm, Term};
+use ark_poly::DenseMVPolynomial;
+// use ark_std::rand::thread_rng;
 
-const PRIME: i32 = 7;
+/// Helper function to generate all combinations of variable degrees
+fn generate_all_combinations(num_variables: usize, max_degree: usize) -> Vec<Vec<(usize, usize)>> {
+    let mut combinations = Vec::new();
 
-#[derive(Debug, Clone)]
-pub struct Polynomial {
-    pub terms: Vec<Term>,  // A polynomial consists of multiple terms
+    // Generate 2^num_variables combinations (each variable can have a degree from 0 to max_degree)
+    let total_combinations = (max_degree + 1).pow(num_variables as u32);
+
+    for i in 0..total_combinations {
+        let mut vars = Vec::new();
+        let mut n = i;
+
+        for var_index in 0..num_variables {
+            let degree = n % (max_degree + 1); // Choose a degree between 0 and max_degree
+            n /= max_degree + 1;
+            if degree > 0 {
+                vars.push((var_index, degree)); // Add only variables with degree > 0
+            }
+        }
+        combinations.push(vars);
+    }
+    combinations
 }
 
-impl Polynomial {
-    pub fn evaluate(&self, variables: &[i32]) -> i32 {
-        self.terms.iter().map(|term| term.evaluate(variables)).fold(0, |acc, x| (acc + x) % PRIME)
-    }
-}
+/// Function to generate a random sparse polynomial with `num_variables` variables
+pub fn generate_random_polynomial<F: Field>(
+    num_variables: usize,
+    max_degree: usize,
+) -> SparsePolynomial<F, SparseTerm> {
+    // let mut rng = thread_rng();
 
-impl fmt::Display for Polynomial {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let term_strings: Vec<String> = self.terms.iter().map(|term| format!("{}", term)).collect();
-        write!(f, "{}", term_strings.join(" + "))
+    // Generate all possible variable combinations
+    let combinations = generate_all_combinations(num_variables, max_degree);
+
+    let mut terms = Vec::new();
+
+    // For each combination, generate a random coefficient
+    for vars in combinations {
+        // let coefficient = F::rand(&mut rng); // Generate a random coefficient in the field F
+        let coefficient = F::from(1 as u128);
+        let term = Term::new(vars); // Create a Term for the given combination
+        terms.push((coefficient, term)); // Add the term to the list
     }
+    SparsePolynomial::from_coefficients_vec(num_variables, terms) // Return the generated polynomial
 }
