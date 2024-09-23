@@ -177,3 +177,5 @@ const MAX_COEFFICIENT: i32 = 20;
 ## Conclusion
 
 This project provides a clear, modular implementation of the Sumcheck Protocol using randomly generated polynomials. The interaction between the Prover and Verifier demonstrates the verification process, ensuring the correctness of polynomial evaluations. The project is easily configurable via global constants, allowing quick adjustment to polynomial complexity.
+
+

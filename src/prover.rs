@@ -1,11 +1,11 @@
 use crate::{polynomial::generate_random_polynomial, verifier::Verifier};
 use ark_ff::Field;
 use ark_poly::{
-    multivariate::{SparsePolynomial, SparseTerm, Term},
+    multivariate::{SparsePolynomial, SparseTerm},
     univariate::SparsePolynomial as UniSparsePolynomial,
-    DenseMVPolynomial, Polynomial,
+    Polynomial,
 };
-use rand::{thread_rng, Rng};
+// use rand::Rng;
 
 pub struct Prover<F: Field> {
     pub polynomial: SparsePolynomial<F, SparseTerm>,
@@ -24,53 +24,72 @@ impl<F: Field> Prover<F> {
         }
     }
 
-    fn reduce_to_univariate(&mut self, step: usize, randoms: Vec<F>) -> UniSparsePolynomial<F> {
-        let random: F = match randoms.get(step) {
-            Some(&value) => value,
-            None => panic!("Index out of bounds: step value is {}, but randoms length is {}", step, randoms.len()),
-        };
-        self.steps.push(random);
-        let mut reduced_terms = Vec::new();
+    fn reduce_to_univariate(
+        &mut self,
+        target_var: usize,
+        randoms: Vec<F>,
+    ) -> UniSparsePolynomial<F> {
+        let mut reduced_terms_at_0 = Vec::new();
+        let mut reduced_terms_at_1 = Vec::new();
 
-        // Handle the two cases: when the challenged variable is 0 and 1
-        for binary_value in [F::zero(), F::one()] {
-            let mut temp_terms = Vec::new();
+        // Iterate over each term in the polynomial
+        for (coeff, term) in &self.polynomial.terms {
+            let mut new_coeff_at_0 = *coeff;
+            let mut new_coeff_at_1 = *coeff;
+            let mut degree_target = 0;
 
-            // Iterate over each term in the polynomial
-            for (coeff, term) in &self.polynomial.terms {
-                let mut new_coeff = *coeff;
-                let mut degree = 0;
+            // Iterate over the variables in the term
+            for (var_index, var_degree) in term.iter() {
+                if *var_index == target_var {
+                    // target_var
+                    degree_target = *var_degree;
+                } else if *var_index < target_var {
+                    new_coeff_at_0 *= randoms[*var_index].pow(&[*var_degree as u64]);
+                    new_coeff_at_1 *= randoms[*var_index].pow(&[*var_degree as u64]);
+                } else {
+                    // let random_value = randoms[*var_index];
+                    new_coeff_at_0 *= F::zero().pow(&[*var_degree as u64]);
+                    new_coeff_at_1 *= F::one().pow(&[*var_degree as u64]);
 
-                // Iterate over the variables in the term
-                for (var_index, var_degree) in term.iter() {
-                    if *var_index > step {
-                        degree = *var_degree; // Variable to reduce
-                        new_coeff *= binary_value.pow(&[*var_degree as u64]);
-                    } else if *var_index < step {
-                        // Multiply by random challenge for other variables
-                        new_coeff *= random.pow(&[*var_degree as u64]);
-                    } else {
-                        // Variables from future steps are ignored
-                        continue;
-                    }
-                }
-
-                if !new_coeff.is_zero() {
-                    temp_terms.push((degree, new_coeff));
+                    println!(
+                        "Evaluating variable x_{}: Coeff at 0 -> {:?}, Coeff at 1 -> {:?}",
+                        var_index, new_coeff_at_0, new_coeff_at_1
+                    );
                 }
             }
 
-            // Sum the terms with the same exponents
-            for (degree, new_coeff) in temp_terms {
-                if let Some(existing_term) = reduced_terms.iter_mut().find(|(d, _)| *d == degree) {
-                    existing_term.1 += new_coeff;
-                } else {
-                    reduced_terms.push((degree, new_coeff));
-                }
+            // Add the resulting terms for (target_var, 0) and (target_var, 1)
+            if !new_coeff_at_0.is_zero() {
+                reduced_terms_at_0.push((degree_target, new_coeff_at_0));
+            }
+            if !new_coeff_at_1.is_zero() {
+                reduced_terms_at_1.push((degree_target, new_coeff_at_1));
             }
         }
 
-        UniSparsePolynomial::from_coefficients_vec(reduced_terms)
+        // Combine terms from both evaluations (target_var, 0) and (target_var, 1)
+        let mut final_terms = Vec::new();
+        for (degree, coeff_at_0) in reduced_terms_at_0 {
+            if let Some(existing_term) = final_terms.iter_mut().find(|(d, _)| *d == degree) {
+                existing_term.1 += coeff_at_0;
+            } else {
+                final_terms.push((degree, coeff_at_0));
+            }
+        }
+        for (degree, coeff_at_1) in reduced_terms_at_1 {
+            if let Some(existing_term) = final_terms.iter_mut().find(|(d, _)| *d == degree) {
+                existing_term.1 += coeff_at_1;
+            } else {
+                final_terms.push((degree, coeff_at_1));
+            }
+        }
+
+        println!(
+            "Final reduced univariate polynomial terms: {:?}",
+            final_terms
+        );
+
+        UniSparsePolynomial::from_coefficients_vec(final_terms)
     }
 
     /// Sends the reduced univariate polynomial for the current variable to the Verifier
@@ -81,8 +100,6 @@ impl<F: Field> Prover<F> {
     ) -> UniSparsePolynomial<F> {
         let polynomial =
             self.reduce_to_univariate(variable_index, verifier.challenge_values.clone());
-        // println!("Prover sends reduced polynomial for variable x{}", variable_index + 1);
-        // println!("Polynomial: {}", polynomial);
         polynomial
     }
 
@@ -90,20 +107,21 @@ impl<F: Field> Prover<F> {
     pub fn sum_over_all_inputs(&self) -> F {
         // Generate all combinations of 0 and 1 for the number of variables
         let combinations = Self::generate_combinations(self.num_variables);
-        
+
         // Initialize the accumulator for the sum of all evaluations
         let mut sum = F::zero();
-        
+
         // Iterate over each combination of inputs (0s and 1s)
         for input in combinations {
             // Evaluate the polynomial at the current input and add it to the sum
             let evaluation = self.polynomial.evaluate(&input);
             sum += evaluation;
         }
-        
+
         // Return the final sum
         sum
     }
+
     /// Generates all combinations of 0 and 1 for a given number of variables
     fn generate_combinations(num_variables: usize) -> Vec<Vec<F>> {
         (0..(1 << num_variables))
