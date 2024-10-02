@@ -7,9 +7,10 @@ mod tests {
     fn test_sumcheck_protocol() {
         let num_variables = 2;
         let max_degree: usize = 1;
+        let max_terms: usize = 3;
 
         // Step 1: Prover generates a polynomial
-        let mut prover = Prover::<Fq>::new(num_variables, max_degree);
+        let mut prover = Prover::<Fq>::new(num_variables, max_degree, max_terms);
         println!("Generated Polynomial: {:?}", prover.polynomial);
 
         // Step 2: Prover calculates the sum over all inputs

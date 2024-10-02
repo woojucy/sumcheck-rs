@@ -15,8 +15,8 @@ pub struct Prover<F: Field> {
 
 impl<F: Field> Prover<F> {
     /// Create a new Prover with a randomly generated polynomial
-    pub fn new(num_variables: usize, max_degree: usize) -> Self {
-        let polynomial = generate_random_polynomial(num_variables, max_degree);
+    pub fn new(num_variables: usize, max_degree: usize, max_terms: usize) -> Self {
+        let polynomial = generate_random_polynomial(num_variables, max_degree, max_terms);
         Prover {
             polynomial,
             num_variables,
@@ -104,23 +104,41 @@ impl<F: Field> Prover<F> {
     }
 
     /// Calculates the sum of the polynomial over all possible input combinations of 0 and 1
-    pub fn sum_over_all_inputs(&self) -> F {
-        // Generate all combinations of 0 and 1 for the number of variables
-        let combinations = Self::generate_combinations(self.num_variables);
+pub fn sum_over_all_inputs(&self) -> F {
+    // Generate all combinations of 0 and 1 for the number of variables
+    let combinations = Self::generate_combinations(self.num_variables);
 
-        // Initialize the accumulator for the sum of all evaluations
-        let mut sum = F::zero();
+    // Initialize the accumulator for the sum of all evaluations
+    let mut sum = F::zero();
 
-        // Iterate over each combination of inputs (0s and 1s)
-        for input in combinations {
-            // Evaluate the polynomial at the current input and add it to the sum
-            let evaluation = self.polynomial.evaluate(&input);
-            sum += evaluation;
-        }
+    // Track the number of combinations evaluated
+    let mut count = 0;
 
-        // Return the final sum
-        sum
+    // Iterate over each combination of inputs (0s and 1s)
+    for input in combinations {
+        // Evaluate the polynomial at the current input and add it to the sum
+        let evaluation = self.polynomial.evaluate(&input);
+        sum += evaluation;
+
+        // Debugging information
+        println!(
+            "Combination {}: input = {:?}, evaluation = {:?}, sum = {:?}",
+            count, input, evaluation, sum
+        );
+
+        count += 1;
     }
+
+    // Final debug information
+    println!(
+        "Total combinations evaluated: {}, Final sum: {:?}",
+        count, sum
+    );
+
+    // Return the final sum
+    sum
+}
+
 
     /// Generates all combinations of 0 and 1 for a given number of variables
     fn generate_combinations(num_variables: usize) -> Vec<Vec<F>> {
