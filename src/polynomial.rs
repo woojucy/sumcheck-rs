@@ -104,3 +104,124 @@ pub fn generate_random_polynomial<F: Field>(
 }
 
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ark_ff::Zero;
+    use ark_test_curves::fp128::Fq; // Example field element for testing
+
+    #[test]
+    fn test_generate_random_polynomial_basic() {
+        let num_variables = 3;
+        let max_degree = 5;
+        let max_terms = 10;
+
+        // Generate a random polynomial
+        let poly = generate_random_polynomial::<Fq>(num_variables, max_degree, max_terms);
+
+        // Check that the number of terms is less than or equal to max_terms
+        assert!(poly.terms().len() <= max_terms, "Polynomial should have at most max_terms terms");
+
+        // Check that all terms have degrees within the correct range
+        for (coeff, term) in poly.terms() {
+            assert!(!coeff.is_zero(), "Coefficient should not be zero");
+
+            for (var, deg) in term.iter() {
+                assert!(*deg > 0 && *deg <= max_degree, "Degree should be between 1 and max_degree");
+                assert!(*var <= num_variables, "Variable index should be within the number of variables");
+            }
+        }
+    }
+
+    #[test]
+    fn test_generate_random_polynomial_minimum_input() {
+        // Test with the smallest possible values
+        let num_variables = 1;
+        let max_degree = 1;
+        let max_terms = 1;
+
+        let poly = generate_random_polynomial::<Fq>(num_variables, max_degree, max_terms);
+
+        // The polynomial should have at most 1 term
+        assert!(poly.terms().len() <= 1, "Polynomial should have at most 1 term");
+
+        // If a term exists, ensure it follows the constraints
+        if let Some((coeff, term)) = poly.terms().get(0) {
+            assert!(!coeff.is_zero(), "Coefficient should not be zero");
+            for (var, deg) in term.iter() {
+                assert!(*deg > 0 && *deg <= max_degree, "Degree should be 1");
+                assert!(*var <= num_variables, "Variable index should be 0 or 1");
+            }
+        }
+    }
+
+    #[test]
+    fn test_generate_random_polynomial_maximum_input() {
+        // Test with a larger input size
+        let num_variables = 10;
+        let max_degree = 10;
+        let max_terms = 100;
+
+        let poly = generate_random_polynomial::<Fq>(num_variables, max_degree, max_terms);
+
+        // Check that the polynomial has the correct number of terms
+        assert!(poly.terms().len() <= max_terms, "Polynomial should have at most max_terms terms");
+
+        // Check all terms' degrees and variables
+        for (coeff, term) in poly.terms() {
+            assert!(!coeff.is_zero(), "Coefficient should not be zero");
+
+            for (var, deg) in term.iter() {
+                assert!(*deg > 0 && *deg <= max_degree, "Degree should be between 1 and max_degree");
+                assert!(*var <= num_variables, "Variable index should be within the number of variables");
+            }
+        }
+    }
+
+    #[test]
+    fn test_constant_term_only() {
+        // Test case where only the constant term can be included
+        let num_variables = 1;
+        let max_degree = 5;
+        let max_terms = 1;
+
+        let poly = generate_random_polynomial::<Fq>(num_variables, max_degree, max_terms);
+
+        // There should be at most one term, which may be the constant term
+        assert!(poly.terms().len() <= 1, "Polynomial should have at most 1 term");
+
+        if let Some((_, term)) = poly.terms().get(0) {
+            // If the term is present, check if it's the constant term (i = 0)
+            for (var, _) in term.iter() {
+                assert!(*var == 0 || *var == 1, "Variable should be either 0 (constant) or 1 (first variable)");
+            }
+        }
+    }
+
+    #[test]
+    fn test_max_terms_less_than_one_should_panic() {
+        let num_variables = 3;
+        let max_degree = 5;
+
+        // max_terms is set to 0, which should cause a panic
+        let result = std::panic::catch_unwind(|| {
+            generate_random_polynomial::<Fq>(num_variables, max_degree, 0);
+        });
+
+        assert!(result.is_err(), "Function should panic when max_terms is less than 1");
+    }
+
+    #[test]
+    fn test_empty_polynomial() {
+        // Test case where num_variables and max_degree are large but max_terms is very small
+        let num_variables = 5;
+        let max_degree = 5;
+        let max_terms = 1;
+
+        let poly = generate_random_polynomial::<Fq>(num_variables, max_degree, max_terms);
+
+        // The polynomial should contain exactly 1 term at most
+        assert!(poly.terms().len() <= 1, "Polynomial should have at most 1 term");
+    }
+}
+
