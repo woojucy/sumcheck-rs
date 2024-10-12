@@ -8,10 +8,7 @@ use ark_std::rand::{thread_rng, Rng};
 /// Helper function to generate variable combinations based on var_index
 /// Each `var_index` is treated as a bitmask where each bit represents a variable.
 /// The degree of each variable is randomly selected between 0 and `max_degree`.
-fn generate_term_from_var_index(
-    num_variables: usize,
-    max_degree: usize,
-) -> Vec<(usize, usize)> {
+fn generate_term_from_var_index(num_variables: usize, max_degree: usize) -> Vec<(usize, usize)> {
     let mut vars = Vec::new();
     let mut rng = thread_rng();
 
@@ -19,13 +16,15 @@ fn generate_term_from_var_index(
     for i in 0..=num_variables {
         if i == 0 {
             // Special handling for the constant term
-            if rng.gen_bool(0.5) { // 50% chance to include the constant term
+            if rng.gen_bool(0.5) {
+                // 50% chance to include the constant term
                 let degree = rng.gen_range(1..=max_degree); // Ensure degree is at least 1 for the constant term
                 vars.push((0, degree));
             }
         } else {
             // Randomly decide whether to include the variable
-            if rng.gen_bool(0.5) { // 50% chance to include each variable
+            if rng.gen_bool(0.5) {
+                // 50% chance to include each variable
                 let degree = rng.gen_range(0..=max_degree);
                 if degree > 0 {
                     vars.push((i, degree)); // Variable i is included with a random degree if the degree is greater than 0
@@ -60,7 +59,6 @@ pub fn generate_random_polynomial<F: Field>(
     max_degree: usize,
     max_terms: usize,
 ) -> SparsePolynomial<F, SparseTerm> {
-
     assert!(max_terms >= 1, "max_terms must be at least 1");
 
     let mut num_variables = 0;
@@ -103,6 +101,18 @@ pub fn generate_random_polynomial<F: Field>(
     SparsePolynomial::from_coefficients_vec(num_variables, terms)
 }
 
+/// Calculate the maximum number of variables used in a given SparsePolynomial
+pub fn max_variables<F: Field>(polynomial: &SparsePolynomial<F, SparseTerm>) -> usize {
+    let mut max_index = 0;
+    for (_, term) in &polynomial.terms {
+        for (var_index, _) in term.iter() {
+            if *var_index > max_index {
+                max_index = *var_index;
+            }
+        }
+    }
+    max_index + 1
+}
 
 #[cfg(test)]
 mod tests {
@@ -120,15 +130,24 @@ mod tests {
         let poly = generate_random_polynomial::<Fq>(num_variables, max_degree, max_terms);
 
         // Check that the number of terms is less than or equal to max_terms
-        assert!(poly.terms().len() <= max_terms, "Polynomial should have at most max_terms terms");
+        assert!(
+            poly.terms().len() <= max_terms,
+            "Polynomial should have at most max_terms terms"
+        );
 
         // Check that all terms have degrees within the correct range
         for (coeff, term) in poly.terms() {
             assert!(!coeff.is_zero(), "Coefficient should not be zero");
 
             for (var, deg) in term.iter() {
-                assert!(*deg > 0 && *deg <= max_degree, "Degree should be between 1 and max_degree");
-                assert!(*var <= num_variables, "Variable index should be within the number of variables");
+                assert!(
+                    *deg > 0 && *deg <= max_degree,
+                    "Degree should be between 1 and max_degree"
+                );
+                assert!(
+                    *var <= num_variables,
+                    "Variable index should be within the number of variables"
+                );
             }
         }
     }
@@ -143,7 +162,10 @@ mod tests {
         let poly = generate_random_polynomial::<Fq>(num_variables, max_degree, max_terms);
 
         // The polynomial should have at most 1 term
-        assert!(poly.terms().len() <= 1, "Polynomial should have at most 1 term");
+        assert!(
+            poly.terms().len() <= 1,
+            "Polynomial should have at most 1 term"
+        );
 
         // If a term exists, ensure it follows the constraints
         if let Some((coeff, term)) = poly.terms().get(0) {
@@ -165,15 +187,24 @@ mod tests {
         let poly = generate_random_polynomial::<Fq>(num_variables, max_degree, max_terms);
 
         // Check that the polynomial has the correct number of terms
-        assert!(poly.terms().len() <= max_terms, "Polynomial should have at most max_terms terms");
+        assert!(
+            poly.terms().len() <= max_terms,
+            "Polynomial should have at most max_terms terms"
+        );
 
         // Check all terms' degrees and variables
         for (coeff, term) in poly.terms() {
             assert!(!coeff.is_zero(), "Coefficient should not be zero");
 
             for (var, deg) in term.iter() {
-                assert!(*deg > 0 && *deg <= max_degree, "Degree should be between 1 and max_degree");
-                assert!(*var <= num_variables, "Variable index should be within the number of variables");
+                assert!(
+                    *deg > 0 && *deg <= max_degree,
+                    "Degree should be between 1 and max_degree"
+                );
+                assert!(
+                    *var <= num_variables,
+                    "Variable index should be within the number of variables"
+                );
             }
         }
     }
@@ -188,12 +219,18 @@ mod tests {
         let poly = generate_random_polynomial::<Fq>(num_variables, max_degree, max_terms);
 
         // There should be at most one term, which may be the constant term
-        assert!(poly.terms().len() <= 1, "Polynomial should have at most 1 term");
+        assert!(
+            poly.terms().len() <= 1,
+            "Polynomial should have at most 1 term"
+        );
 
         if let Some((_, term)) = poly.terms().get(0) {
             // If the term is present, check if it's the constant term (i = 0)
             for (var, _) in term.iter() {
-                assert!(*var == 0 || *var == 1, "Variable should be either 0 (constant) or 1 (first variable)");
+                assert!(
+                    *var == 0 || *var == 1,
+                    "Variable should be either 0 (constant) or 1 (first variable)"
+                );
             }
         }
     }
@@ -208,7 +245,10 @@ mod tests {
             generate_random_polynomial::<Fq>(num_variables, max_degree, 0);
         });
 
-        assert!(result.is_err(), "Function should panic when max_terms is less than 1");
+        assert!(
+            result.is_err(),
+            "Function should panic when max_terms is less than 1"
+        );
     }
 
     #[test]
@@ -221,7 +261,9 @@ mod tests {
         let poly = generate_random_polynomial::<Fq>(num_variables, max_degree, max_terms);
 
         // The polynomial should contain exactly 1 term at most
-        assert!(poly.terms().len() <= 1, "Polynomial should have at most 1 term");
+        assert!(
+            poly.terms().len() <= 1,
+            "Polynomial should have at most 1 term"
+        );
     }
 }
-
