@@ -2,8 +2,7 @@
 mod tests {
     use crate::{polynomial::max_variables, prover::Prover, verifier::Verifier};
     use ark_poly::{
-        multivariate::{SparsePolynomial, SparseTerm, Term},
-        DenseMVPolynomial,
+        multivariate::{SparsePolynomial, SparseTerm, Term},univariate::SparsePolynomial as UniSparsePolynomial, DenseMVPolynomial, Polynomial
     };
     use ark_test_curves::fp128::Fq;
 
@@ -18,7 +17,7 @@ mod tests {
         println!("Generated Polynomial: {:?}", prover.polynomial);
 
         // Step 2: Prover calculates the sum over all inputs
-        let sum = prover.sum_over_all_inputs();
+        let mut sum = prover.sum_over_all_inputs();
         println!("Prover calculated sum: {:?}", sum);
 
         // Step 3: Verifier sets the expected sum
@@ -26,8 +25,9 @@ mod tests {
 
         // Step 4: Perform Sumcheck protocol rounds
         for i in 0..num_variables {
-            if let Some(_) = verifier.verify_and_challenge(&mut prover, i) {
+            if let Some(ith_poly) = verifier.verify_and_challenge(&mut prover, i, &sum) {
                 println!("Round {} succeeded", i + 1);
+                sum = ith_poly.evaluate(&verifier.challenge_values[i])
             } else {
                 println!("Verification failed at round {}", i + 1);
                 assert!(false, "Verification failed at round {}", i + 1);
@@ -44,11 +44,10 @@ mod tests {
         let poly = SparsePolynomial::from_coefficients_vec(
             3,
             vec![
-                (Fq::from(1), SparseTerm::new(vec![(0, 1)])),
-                (Fq::from(1), SparseTerm::new(vec![(0, 1), (1, 1)])),
-                // (Fq::from(1), SparseTerm::new(vec![(1, 1), (0, 1)])),
-                // (Fq::from(5), SparseTerm::new(vec![])),
-            ],
+            (Fq::from(3), SparseTerm::new(vec![(0, 3), (1, 1)])),
+            (Fq::from(3), SparseTerm::new(vec![(0, 1), (2, 1)])),
+            (Fq::from(2), SparseTerm::new(vec![(1, 1), (2, 1)])),
+        ],
         );
 
         // Create a Prover instance using the predefined polynomial
@@ -60,7 +59,7 @@ mod tests {
         );
 
         // Step 2: Prover calculates the sum over all inputs
-        let sum = prover.sum_over_all_inputs();
+        let mut sum = prover.sum_over_all_inputs();
         println!("Prover calculated sum: {:?}", sum);
 
         // Step 3: Verifier sets the expected sum
@@ -68,9 +67,11 @@ mod tests {
 
         // Step 4: Perform Sumcheck protocol rounds
         let num_variables = max_variables(&prover.polynomial);
+        // let mut ith_poly: UniSparsePolynomial<F>;
         for i in 0..num_variables {
-            if let Some(_) = verifier.verify_and_challenge(&mut prover, i) {
+            if let Some(ith_poly) = verifier.verify_and_challenge(&mut prover, i, &sum) {
                 println!("Round {} succeeded", i + 1);
+                sum = ith_poly.evaluate(&verifier.challenge_values[i])
             } else {
                 println!("Verification failed at round {}", i + 1);
                 assert!(false, "Verification failed at round {}", i + 1);

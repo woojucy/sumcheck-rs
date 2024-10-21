@@ -42,69 +42,57 @@ impl<F: Field> Prover<F> {
         target_var: usize,
         randoms: Vec<F>,
     ) -> UniSparsePolynomial<F> {
-        let mut reduced_terms_at_0 = Vec::new();
-        let mut reduced_terms_at_1 = Vec::new();
-
-        // Iterate over each term in the polynomial
-        for (coeff, term) in &self.polynomial.terms {
-            let mut new_coeff_at_0 = *coeff;
-            let mut new_coeff_at_1 = *coeff;
-            let mut degree_target = 0;
-
-            // Iterate over the variables in the term
-            for (var_index, var_degree) in term.iter() {
-                if *var_index == target_var {
-                    // target_var
-                    degree_target = *var_degree;
-                } else if *var_index < target_var {
-                    new_coeff_at_0 *= randoms[*var_index].pow(&[*var_degree as u64]);
-                    new_coeff_at_1 *= randoms[*var_index].pow(&[*var_degree as u64]);
+        let mut coefficients = vec![F::zero(); self.polynomial.degree() + 1];
+        let v = self.num_variables;
+    
+        // Iterate over all input combinations for the remaining variables
+        for i in 0..2i32.pow((v - target_var - 1) as u32) {
+            let mut inputs: Vec<F> = vec![];
+            // Add inputs from previous rounds (randoms)
+            inputs.extend(&randoms);
+    
+            // Generate inputs for the remaining variables
+            let mut counter = i;
+            for _ in 0..(v - target_var - 1) {
+                if counter % 2 == 0 {
+                    inputs.push(F::from(0_u32));
                 } else {
-                    // let random_value = randoms[*var_index];
-                    new_coeff_at_0 *= F::zero().pow(&[*var_degree as u64]);
-                    new_coeff_at_1 *= F::one().pow(&[*var_degree as u64]);
-
-                    println!(
-                        "Evaluating variable x_{}: Coeff at 0 -> {:?}, Coeff at 1 -> {:?}",
-                        var_index, new_coeff_at_0, new_coeff_at_1
-                    );
+                    inputs.push(F::from(1_u32));
+                }
+                counter /= 2;
+            }
+    
+            // Evaluate the polynomial at the current input combination
+            for (coeff, term) in &self.polynomial.terms {
+                let mut c_acc = F::one();
+                let mut degree_target = 0;
+                let mut has_target_var = false; // Flag to check if target_var is in the term
+    
+                // Check each term's variables to determine if target_var is included
+                for (var_index, var_degree) in term.iter() {
+                    if *var_index == target_var {
+                        degree_target = *var_degree;
+                        has_target_var = true; // Mark that target_var is in the term
+                    } else {
+                        // Process variables other than target_var
+                        c_acc *= inputs[*var_index].pow(&[*var_degree as u64]);
+                    }
+                }
+    
+                if !has_target_var {
+                    println!("Adding to constant term: coeff = {:?}, c_acc = {:?}", coeff, c_acc);
+                    coefficients[0] += *coeff * c_acc;
+                } else {
+                    println!("Adding to degree {:?}: coeff = {:?}, c_acc = {:?}", degree_target, coeff, c_acc);
+                    coefficients[degree_target] += *coeff * c_acc;
                 }
             }
-
-            // Add the resulting terms for (target_var, 0) and (target_var, 1)
-            if !new_coeff_at_0.is_zero() {
-                reduced_terms_at_0.push((degree_target, new_coeff_at_0));
-            }
-            if !new_coeff_at_1.is_zero() {
-                reduced_terms_at_1.push((degree_target, new_coeff_at_1));
-            }
         }
-
-        // Combine terms from both evaluations (target_var, 0) and (target_var, 1)
-        let mut final_terms = Vec::new();
-        for (degree, coeff_at_0) in reduced_terms_at_0 {
-            if let Some(existing_term) = final_terms.iter_mut().find(|(d, _)| *d == degree) {
-                existing_term.1 += coeff_at_0;
-            } else {
-                final_terms.push((degree, coeff_at_0));
-            }
-        }
-        for (degree, coeff_at_1) in reduced_terms_at_1 {
-            if let Some(existing_term) = final_terms.iter_mut().find(|(d, _)| *d == degree) {
-                existing_term.1 += coeff_at_1;
-            } else {
-                final_terms.push((degree, coeff_at_1));
-            }
-        }
-
-        println!(
-            "Final reduced univariate polynomial terms: {:?}",
-            final_terms
-        );
-
-        UniSparsePolynomial::from_coefficients_vec(final_terms)
+    
+        // Create the univariate polynomial from the coefficients
+        UniSparsePolynomial::from_coefficients_vec(coefficients.into_iter().enumerate().collect())
     }
-
+    
     /// Sends the reduced univariate polynomial for the current variable to the Verifier
     pub fn send_polynomial(
         &mut self,

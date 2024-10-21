@@ -30,14 +30,14 @@ impl<F: Field> Verifier<F> {
 
     /// Verifies the reduced univariate polynomial by evaluating it at 0 and 1
     /// and checks if the sum of these evaluations matches the expected sum
-    pub fn verify_polynomial(&self, polynomial: &UniSparsePolynomial<F>) -> bool {
+    pub fn verify_polynomial(&self, polynomial: &UniSparsePolynomial<F>, prev_eval: &F) -> bool {
         let sum_at_0 = polynomial.evaluate(&F::zero());
         let sum_at_1 = polynomial.evaluate(&F::one());
 
-        let verified = sum_at_0 + sum_at_1 == self.expected_sum;
+        let verified = sum_at_0 + sum_at_1 == *prev_eval;
         println!(
             "Verifier checks reduced polynomial, evaluated at 0: {}, at 1: {} to be: {}",
-            sum_at_0, sum_at_1, self.expected_sum
+            sum_at_0, sum_at_1, prev_eval
         );
 
         verified
@@ -49,6 +49,7 @@ impl<F: Field> Verifier<F> {
         &mut self,
         prover: &mut crate::prover::Prover<F>,
         variable_index: usize,
+        expected_sum: &F,
     ) -> Option<UniSparsePolynomial<F>> {
         // Choose a random challenge value
         self.choose_challenge();
@@ -60,7 +61,7 @@ impl<F: Field> Verifier<F> {
         println!("Reduced Polynomial: {:?}", reduced_polynomial);
 
         // Verify the reduced polynomial
-        if self.verify_polynomial(&reduced_polynomial) {
+        if self.verify_polynomial(&reduced_polynomial, expected_sum) {
             Some(reduced_polynomial)
         } else {
             println!("Verification failed");
