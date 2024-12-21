@@ -12,3 +12,15 @@ doctest = false
 
 [dependencies]
 rand = "0.8"
+ark-ff = "0.5.0"
+ark-poly = "0.5.0"
+ark-std = "0.5.0"
+serde = "1.0"
+serde_json = "1.0"
+chrono = "0.4"
+num-bigint = "0.4"
+bincode = "1.3"
+hex = "0.4"
+
+[dev-dependencies]
+ark-test-curves = "0.5.0"

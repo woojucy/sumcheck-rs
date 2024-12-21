@@ -1,76 +1,71 @@
-use crate::polynomial::Polynomial;
-use crate::utils::*;
-use crate::prover::Prover;
-use rand::Rng;
+use ark_ff::Field;
+use ark_poly::univariate::SparsePolynomial as UniSparsePolynomial;
+use ark_poly::Polynomial;
+use ark_std::test_rng;
 
-pub struct Verifier {
+pub struct Verifier<F: Field> {
     pub num_variables: usize,
-    pub expected_sum: i32,
-    pub challenge_values: Vec<i32>,  // Stores the challenge values chosen by the Verifier
+    pub expected_sum: F,
+    pub challenge_values: Vec<F>, // Stores the challenge values chosen by the Verifier
 }
 
-impl Verifier {
+impl<F: Field> Verifier<F> {
     /// Initializes the Verifier with the expected sum and the number of variables
-    pub fn new(num_variables: usize, expected_sum: i32) -> Self {
+    pub fn new(num_variables: usize, expected_sum: F) -> Self {
         Verifier {
             num_variables,
             expected_sum,
-            challenge_values: Vec::new(),  // Initially, no challenges have been chosen
+            challenge_values: Vec::new(), // Initially, no challenges have been chosen
         }
     }
 
     /// Chooses a random challenge value (0 or 1) for the current round
     /// and stores it in the challenge_values list
-    pub fn choose_challenge(&mut self) -> i32 {
-        let mut rng = rand::thread_rng();
-        let challenge_value = rng.gen_range(0..=PRIME);  // Randomly select 0 or 1
-        self.challenge_values.push(challenge_value);  // Save the chosen challenge value
-        challenge_value
+    pub fn choose_challenge(&mut self) {
+        let mut rng = test_rng();
+        let challenge = F::from(1_u128); // Randomly select a field element
+                                         // let challenge = F::rand(&mut rng); // Randomly select a field element
+        self.challenge_values.push(challenge);
     }
 
-    pub fn verify_polynomial(&self, polynomial: &Polynomial) -> bool {
-        // Create vectors with 0s and 1s for all variables
-        println!("verification poly: {}", polynomial);
-        let sum_at_0 = polynomial.evaluate(&vec![0; self.num_variables]);  // Evaluate at 0
-        let sum_at_1 = polynomial.evaluate(&vec![1; self.num_variables]);  // Evaluate at 1
-    
-        let verified = sum_at_0 + sum_at_1 == self.expected_sum;
+    /// Verifies the reduced univariate polynomial by evaluating it at 0 and 1
+    /// and checks if the sum of these evaluations matches the expected sum
+    pub fn verify_polynomial(&self, polynomial: &UniSparsePolynomial<F>, prev_eval: &F) -> bool {
+        let sum_at_0 = polynomial.evaluate(&F::zero());
+        let sum_at_1 = polynomial.evaluate(&F::one());
+
+        let verified = sum_at_0 + sum_at_1 == *prev_eval;
         println!(
             "Verifier checks reduced polynomial, evaluated at 0: {}, at 1: {} to be: {}",
-            sum_at_0, sum_at_1, self.expected_sum
+            sum_at_0, sum_at_1, prev_eval
         );
-    
+
         verified
     }
 
+    /// Sends the challenge to the prover and receives the reduced univariate polynomial
+    /// Verifies the polynomial and returns it if successful, otherwise returns None
     pub fn verify_and_challenge(
         &mut self,
-        prover: &mut Prover,
-        // previous_univariate: &Polynomial,  // The previous round's univariate polynomial
-        variable_index: usize
-    ) -> Option<Polynomial> {
-        // Verifier chooses a new challenge value for the current variable
-        let challenge_value = self.choose_challenge();
-        
-        println!(
-            "Verifier sends challenge for variable {}: {}",
-            variable_index + 1, challenge_value
-        );
-    
-        // Prover sends the reduced polynomial based on the challenge values
-        let reduced_polynomial = prover.interact_with_verifier(self, variable_index);
+        prover: &mut crate::prover::Prover<F>,
+        variable_index: usize,
+        expected_sum: &F,
+    ) -> Option<UniSparsePolynomial<F>> {
+        // Choose a random challenge value
+        self.choose_challenge();
 
-        if !self.verify_polynomial(&reduced_polynomial) {
-            println!(
-                "Verification failed"
-            );
-            return None;
+        // Ask the prover to send the reduced polynomial
+        let reduced_polynomial = prover.send_polynomial(&self, variable_index);
+
+        // Output the reduced polynomial for debugging purposes
+        println!("Reduced Polynomial: {:?}", reduced_polynomial);
+
+        // Verify the reduced polynomial
+        if self.verify_polynomial(&reduced_polynomial, expected_sum) {
+            Some(reduced_polynomial)
+        } else {
+            println!("Verification failed");
+            None
         }
-    
-        // Update the expected sum for the next challenge round using the challenge_value
-        self.expected_sum = reduced_polynomial.evaluate(&vec![challenge_value; 1]);
-    
-        Some(reduced_polynomial)
     }
-    
 }

@@ -8,12 +8,11 @@ The project is organized into several modules, each encapsulating a specific fun
 
 ```
 /src
- ├── lib.rs             # Main library file that integrates all modules
- ├── term.rs            # Contains the Term struct and its related logic (e.g., evaluation)
- ├── polynomial.rs      # Contains the Polynomial struct and its operations
- ├── prover.rs          # Defines the Prover struct and its methods for the Sumcheck protocol
- ├── verifier.rs        # Defines the Verifier struct and its methods for challenging and verification
- └── utils.rs           # Utility functions (e.g., generating random polynomials)
+ ├── lib.rs
+ ├── prover.rs
+ ├── verifier.rs
+ ├── polynomial.rs
+ └── tests.rs
 ```
 
 ### File Descriptions
@@ -178,3 +177,5 @@ const MAX_COEFFICIENT: i32 = 20;
 ## Conclusion
 
 This project provides a clear, modular implementation of the Sumcheck Protocol using randomly generated polynomials. The interaction between the Prover and Verifier demonstrates the verification process, ensuring the correctness of polynomial evaluations. The project is easily configurable via global constants, allowing quick adjustment to polynomial complexity.
+
+
