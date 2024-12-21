@@ -78,8 +78,9 @@ pub fn generate_random_polynomial<F: Field>(
         println!("Term {}: vars = {:?}", i, vars);
 
         if !vars.is_empty() {
-            let coefficient = F::from(1_u128);
-            // let coefficient = F::rand(&mut rng); // Generate a random coefficient in the field F
+            let mut crng = thread_rng();
+            // let coefficient = F::from(1_u128);
+            let coefficient = F::rand(&mut crng); // Generate a random coefficient in the field F
             let term = SparseTerm::new(vars.clone()); // Create a SparseTerm for the given combination
             terms.push((coefficient, term)); // Add the term to the list
         }

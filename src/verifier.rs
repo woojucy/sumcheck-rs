@@ -1,7 +1,7 @@
 use ark_ff::Field;
 use ark_poly::univariate::SparsePolynomial as UniSparsePolynomial;
 use ark_poly::Polynomial;
-use ark_std::test_rng;
+use rand::thread_rng;
 
 pub struct Verifier<F: Field> {
     pub num_variables: usize,
@@ -22,10 +22,11 @@ impl<F: Field> Verifier<F> {
     /// Chooses a random challenge value (0 or 1) for the current round
     /// and stores it in the challenge_values list
     pub fn choose_challenge(&mut self) {
-        let mut rng = test_rng();
-        let challenge = F::from(1_u128); // Randomly select a field element
-                                         // let challenge = F::rand(&mut rng); // Randomly select a field element
+        // let mut rng = test_rng(); // for test
+        let mut rng = thread_rng();
+        let challenge = F::rand(&mut rng); // Randomly select a field element
         self.challenge_values.push(challenge);
+        println!("Selected random challenge: {:?}", challenge);
     }
 
     /// Verifies the reduced univariate polynomial by evaluating it at 0 and 1
@@ -55,7 +56,7 @@ impl<F: Field> Verifier<F> {
         self.choose_challenge();
 
         // Ask the prover to send the reduced polynomial
-        let reduced_polynomial = prover.send_polynomial(&self, variable_index);
+        let reduced_polynomial = prover.send_polynomial(self, variable_index);
 
         // Output the reduced polynomial for debugging purposes
         println!("Reduced Polynomial: {:?}", reduced_polynomial);

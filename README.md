@@ -15,40 +15,44 @@ The project is organized into several modules, each encapsulating a specific fun
  └── tests.rs
 ```
 
-### File Descriptions
+## File Descriptions
 
-1. **lib.rs**:  
-   The main library file that integrates all other modules. It imports `term.rs`, `polynomial.rs`, `prover.rs`, `verifier.rs`, and `utils.rs`. It also contains the test suite to demonstrate the interaction between the Prover and Verifier during the Sumcheck Protocol.
+#### `prover.rs`
+Implements the Prover logic for the Sumcheck Protocol. Key components include:
+- **Struct**:
+  ```rust
+  pub struct Prover<F: Field> {
+      pub polynomial: SparsePolynomial<F, SparseTerm>,
+      pub num_variables: usize,
+      pub steps: Vec<F>,
+  }
+  ```
+- **Methods**: Constructors for initializing with a random or given polynomial, methods for reducing polynomials to univariate forms, and functions for calculating sums over inputs.
 
-2. **term.rs**:  
-   Contains the definition of the `Term` struct, which represents a single term in a polynomial. The `Term` struct includes methods for evaluating terms with given variable assignments, and the `Display` trait is implemented to provide a human-readable output format.
+#### `verifier.rs`
+Defines the Verifier functionality, crucial for ensuring the correctness of the Prover's computations. Key components include:
+- **Struct**:
+  ```rust
+  pub struct Verifier<F: Field> {
+      pub num_variables: usize,
+      pub expected_sum: F,
+      pub challenge_values: Vec<F>,
+  }
+  ```
+- **Methods**: Initialization, random challenge generation, polynomial verification, and a method to facilitate rounds of challenges and verifications.
 
-3. **polynomial.rs**:  
-   Defines the `Polynomial` struct, which represents a multivariate polynomial composed of several `Term` instances. This module includes methods for polynomial evaluation and reduces polynomials during the Sumcheck Protocol.
+#### `polynomial.rs`
+Manages polynomial structures and operations essential to the protocol. Key components include:
+- **Struct**:
+  ```rust
+  #[derive(Debug, Clone)]
+  struct Polynomial {
+      terms: Vec<Term>,  // A polynomial consists of multiple terms
+  }
+  ```
+- **Functionality**: Includes methods for generating random polynomials and evaluating them. The structure of terms within a polynomial is managed to support various operations.
 
-4. **prover.rs**:  
-   Contains the logic for the `Prover` in the Sumcheck Protocol. The Prover generates random polynomials, computes the sum over all possible binary inputs (0 or 1), and interacts with the Verifier by sending reduced polynomials.
-
-5. **verifier.rs**:  
-   Defines the `Verifier` struct, which is responsible for verifying the correctness of the Prover's calculations. It includes methods for generating random challenges and evaluating reduced polynomials to ensure that the Prover’s computations are correct.
-
-6. **utils.rs**:  
-   Provides utility functions, such as generating random polynomials with randomly assigned coefficients and exponents. The `generate_random_polynomial` function is central to the Prover’s polynomial generation.
-
-## Features
-
-1. **Random Polynomial Generation**: 
-   - Polynomials are generated with a configurable number of variables and terms.
-   - Each term has randomly assigned coefficients and exponents, controlled by constants.
-
-2. **Polynomial Evaluation**: 
-   - Polynomials can be evaluated for specific variable assignments.
-   - The Prover computes the sum of the polynomial over all possible binary inputs.
-
-3. **Sumcheck Protocol**: 
-   - The Verifier checks if the sum provided by the Prover is correct.
-   - The Verifier can verify the Prover's partial evaluations step by step by issuing challenges.
-   - The Prover reduces multivariate polynomials to univariate polynomials as part of the verification process.
+These descriptions provide a quick overview of each module's role within the project, highlighting the structures and key methods involved. If further detail is needed or any adjustments are required, please let me know!
 
 ## Sumcheck Protocol Process
 
@@ -71,111 +75,24 @@ The **Sumcheck Protocol** follows a multi-round interaction between a **Prover**
 
 ## Global Constants for Configuration
 
-Two constants are defined globally to control the random polynomial generation:
-
-- **`MAX_DEGREE`**:  
-  Controls the maximum degree that any variable can have in a term.
-
-- **`MAX_COEFFICIENT`**:  
-  Sets the upper limit for the coefficient values of the terms.
-
-These constants can be easily modified to generate more complex or simpler polynomials.
+`lib.rs` defines key global constants for the polynomial calculations. These constants can be easily modified to generate more complex or simpler polynomials.
 
 ```rust
-const MAX_DEGREE: usize = 3;
-const MAX_COEFFICIENT: i32 = 10;
-```
-
-### Why Use Global Constants?
-
-Global constants offer a flexible and centralized way to adjust key parameters of the polynomial generation process. By modifying `MAX_DEGREE` and `MAX_COEFFICIENT`, developers can change the complexity of the polynomials without altering the core logic.
-
-## Code Overview
-
-### `Term` Struct (term.rs)
-
-Represents a single term in a polynomial, consisting of a coefficient and a map of variable indices to exponents.
-
-```rust
-#[derive(Debug, Clone)]
-struct Term {
-    coefficient: i32,
-    exponents: HashMap<usize, usize>,  // Map of variable index to exponent
-}
-```
-
-### `Polynomial` Struct (polynomial.rs)
-
-Represents a multivariate polynomial composed of several `Term` instances. Includes methods for evaluation.
-
-```rust
-#[derive(Debug, Clone)]
-struct Polynomial {
-    terms: Vec<Term>,  // A polynomial consists of multiple terms
-}
-```
-
-### `generate_random_polynomial` Function (utils.rs)
-
-Generates a random polynomial based on the number of variables, using `MAX_DEGREE` and `MAX_COEFFICIENT` for the term structure.
-
-```rust
-fn generate_random_polynomial(num_variables: usize) -> Polynomial {
-    // Logic for generating random polynomial
-}
-```
-
-### `Prover` Struct (prover.rs)
-
-Generates a polynomial and computes its sum over all binary inputs. Interacts with the Verifier to complete the Sumcheck Protocol.
-
-```rust
-struct Prover {
-    polynomial: Polynomial,  // The polynomial function
-    num_variables: usize,     // Number of variables in the polynomial
-}
-```
-
-### `Verifier` Struct (verifier.rs)
-
-Challenges the Prover by verifying the correctness of the Prover's polynomial evaluations and reduced univariate polynomials.
-
-```rust
-struct Verifier {
-    num_variables: usize,
-    expected_sum: i32,
-}
+const MAX_DEGREE: usize = 3; //
+const MAX_TERMS: usize = 10; // Controls the maximum degree that any variable can have in a term.
+const MAX_NUM_VARIABLES: usize = 2; 
 ```
 
 ## Running the Tests
 
-To run the included test, which demonstrates the interaction between the Prover and Verifier:
+`tests.rs` contains automated tests to ensure that the Sumcheck Protocol, as implemented across different components, functions correctly. To run all tests, use the following command:
 
 ```bash
 cargo test
 ```
 
-### Example Output
+If you want to run a specific test and see the output as the test progresses, you can use the '--nocapture option'. For example, to run the 'test_sumcheck_protocol' test and view the inputs and outputs:
 
+```bash
+cargo test test_sumcheck_protocol -- --nocapture
 ```
-Generated Polynomial: 3 * x0^2 + 5 * x1^1 * x2^2
-Prover calculated sum: 52
-Verifier checks input [0, 0, 1]: Prover returned 0
-Verifier checks input [1, 0, 1]: Prover returned 20
-...
-```
-
-## How to Modify Polynomial Configuration
-
-To modify the polynomial's degree or coefficient range, simply change the `MAX_DEGREE` and `MAX_COEFFICIENT` values in the code:
-
-```rust
-const MAX_DEGREE: usize = 4;
-const MAX_COEFFICIENT: i32 = 20;
-```
-
-## Conclusion
-
-This project provides a clear, modular implementation of the Sumcheck Protocol using randomly generated polynomials. The interaction between the Prover and Verifier demonstrates the verification process, ensuring the correctness of polynomial evaluations. The project is easily configurable via global constants, allowing quick adjustment to polynomial complexity.
-
-

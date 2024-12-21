@@ -1,14 +1,10 @@
-use crate::{
-    polynomial::{generate_random_polynomial, max_variables},
-    verifier::Verifier,
-};
+use crate::{polynomial::generate_random_polynomial, verifier::Verifier};
 use ark_ff::Field;
 use ark_poly::{
     multivariate::{SparsePolynomial, SparseTerm},
     univariate::SparsePolynomial as UniSparsePolynomial,
     Polynomial,
 };
-// use rand::Rng;
 
 pub struct Prover<F: Field> {
     pub polynomial: SparsePolynomial<F, SparseTerm>,
@@ -44,13 +40,13 @@ impl<F: Field> Prover<F> {
     ) -> UniSparsePolynomial<F> {
         let mut coefficients = vec![F::zero(); self.polynomial.degree() + 1];
         let v = self.num_variables;
-    
+
         // Iterate over all input combinations for the remaining variables
         for i in 0..2i32.pow((v - target_var - 1) as u32) {
             let mut inputs: Vec<F> = vec![];
             // Add inputs from previous rounds (randoms)
             inputs.extend(&randoms);
-    
+
             // Generate inputs for the remaining variables
             let mut counter = i;
             for _ in 0..(v - target_var - 1) {
@@ -61,13 +57,13 @@ impl<F: Field> Prover<F> {
                 }
                 counter /= 2;
             }
-    
+
             // Evaluate the polynomial at the current input combination
             for (coeff, term) in &self.polynomial.terms {
                 let mut c_acc = F::one();
                 let mut degree_target = 0;
                 let mut has_target_var = false; // Flag to check if target_var is in the term
-    
+
                 // Check each term's variables to determine if target_var is included
                 for (var_index, var_degree) in term.iter() {
                     if *var_index == target_var {
@@ -75,47 +71,37 @@ impl<F: Field> Prover<F> {
                         has_target_var = true; // Mark that target_var is in the term
                     } else {
                         // Process variables other than target_var
-                        c_acc *= inputs[*var_index].pow(&[*var_degree as u64]);
+                        c_acc *= inputs[*var_index].pow([*var_degree as u64]);
                     }
                 }
-    
+
                 if !has_target_var {
-                    println!("Adding to constant term: coeff = {:?}, c_acc = {:?}", coeff, c_acc);
+                    println!(
+                        "Adding to constant term: coeff = {:?}, c_acc = {:?}",
+                        coeff, c_acc
+                    );
                     coefficients[0] += *coeff * c_acc;
                 } else {
-                    println!("Adding to degree {:?}: coeff = {:?}, c_acc = {:?}", degree_target, coeff, c_acc);
+                    println!(
+                        "Adding to degree {:?}: coeff = {:?}, c_acc = {:?}",
+                        degree_target, coeff, c_acc
+                    );
                     coefficients[degree_target] += *coeff * c_acc;
                 }
             }
         }
-    
+
         // Create the univariate polynomial from the coefficients
         UniSparsePolynomial::from_coefficients_vec(coefficients.into_iter().enumerate().collect())
     }
-    
+
     /// Sends the reduced univariate polynomial for the current variable to the Verifier
     pub fn send_polynomial(
         &mut self,
         verifier: &Verifier<F>,
         variable_index: usize,
     ) -> UniSparsePolynomial<F> {
-        let polynomial =
-            self.reduce_to_univariate(variable_index, verifier.challenge_values.clone());
-        polynomial
-    }
-
-    fn convert_to_univariate(&self) -> UniSparsePolynomial<F> {
-        let mut univariate_terms = Vec::new();
-
-        for (coeff, term) in &self.polynomial.terms {
-            // Assume that the term is valid if it has only one variable component
-            // and it is the first variable (x_0).
-            if term.len() == 1 && term[0].0 == 0 {
-                univariate_terms.push((term[0].1, *coeff));
-            }
-        }
-
-        UniSparsePolynomial::from_coefficients_vec(univariate_terms)
+        self.reduce_to_univariate(variable_index, verifier.challenge_values.clone())
     }
 
     /// Calculates the sum of the polynomial over all possible input combinations of 0 and 1

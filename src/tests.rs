@@ -1,16 +1,22 @@
 #[cfg(test)]
 mod tests {
-    use crate::{polynomial::max_variables, prover::Prover, verifier::Verifier};
+    use crate::{
+        polynomial::max_variables, prover::Prover, verifier::Verifier, MAX_DEGREE,
+        MAX_NUM_VARIABLES, MAX_TERMS,
+    };
     use ark_poly::{
-        multivariate::{SparsePolynomial, SparseTerm, Term},univariate::SparsePolynomial as UniSparsePolynomial, DenseMVPolynomial, Polynomial
+        multivariate::{SparsePolynomial, SparseTerm, Term},
+        // univariate::SparsePolynomial as UniSparsePolynomial,
+        DenseMVPolynomial,
+        Polynomial,
     };
     use ark_test_curves::fp128::Fq;
 
     #[test]
     fn test_sumcheck_protocol() {
-        let max_num_variables = 2;
-        let max_degree: usize = 1;
-        let max_terms: usize = 3;
+        let max_num_variables: usize = MAX_NUM_VARIABLES;
+        let max_degree: usize = MAX_DEGREE;
+        let max_terms: usize = MAX_TERMS;
 
         // Step 1: Prover generates a polynomial
         let mut prover = Prover::<Fq>::new(max_num_variables, max_degree, max_terms);
@@ -46,10 +52,10 @@ mod tests {
         let poly = SparsePolynomial::from_coefficients_vec(
             3,
             vec![
-            (Fq::from(3), SparseTerm::new(vec![(0, 3), (1, 1)])),
-            (Fq::from(3), SparseTerm::new(vec![(0, 1), (2, 1)])),
-            (Fq::from(2), SparseTerm::new(vec![(1, 1), (2, 1)])),
-        ],
+                (Fq::from(3), SparseTerm::new(vec![(0, 3), (1, 1)])),
+                (Fq::from(3), SparseTerm::new(vec![(0, 1), (2, 1)])),
+                (Fq::from(2), SparseTerm::new(vec![(1, 1), (2, 1)])),
+            ],
         );
 
         // Create a Prover instance using the predefined polynomial
