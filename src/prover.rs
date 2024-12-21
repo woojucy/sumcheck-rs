@@ -21,18 +21,18 @@ impl<F: Field> Prover<F> {
     pub fn new(num_variables: usize, max_degree: usize, max_terms: usize) -> Self {
         let polynomial = generate_random_polynomial(num_variables, max_degree, max_terms);
         Prover {
-            polynomial,
-            num_variables,
+            polynomial: polynomial.clone(),
+            num_variables: polynomial.num_vars,
             steps: Vec::new(),
         }
     }
 
     /// Create a new Prover with a given polynomial
     pub fn new_with_polynomial(polynomial: SparsePolynomial<F, SparseTerm>) -> Self {
-        let num_variables = max_variables(&polynomial);
+        // let num_variables = max_variables(&polynomial);
         Prover {
-            polynomial,
-            num_variables,
+            polynomial: polynomial.clone(),
+            num_variables: polynomial.num_vars,
             steps: Vec::new(),
         }
     }
@@ -104,8 +104,24 @@ impl<F: Field> Prover<F> {
         polynomial
     }
 
+    fn convert_to_univariate(&self) -> UniSparsePolynomial<F> {
+        let mut univariate_terms = Vec::new();
+
+        for (coeff, term) in &self.polynomial.terms {
+            // Assume that the term is valid if it has only one variable component
+            // and it is the first variable (x_0).
+            if term.len() == 1 && term[0].0 == 0 {
+                univariate_terms.push((term[0].1, *coeff));
+            }
+        }
+
+        UniSparsePolynomial::from_coefficients_vec(univariate_terms)
+    }
+
     /// Calculates the sum of the polynomial over all possible input combinations of 0 and 1
     pub fn sum_over_all_inputs(&self) -> F {
+        println!("Debug: self.num_variables = {}", self.num_variables);
+        // let univariate_poly = self.convert_to_univariate();
         // Generate all combinations of 0 and 1 for the number of variables
         let combinations = Self::generate_combinations(self.num_variables);
 
@@ -119,6 +135,7 @@ impl<F: Field> Prover<F> {
         for input in combinations {
             // Evaluate the polynomial at the current input and add it to the sum
             let evaluation = self.polynomial.evaluate(&input);
+            // let evaluation = univariate_poly.evaluate(&input[0]);
             sum += evaluation;
 
             // Debugging information
