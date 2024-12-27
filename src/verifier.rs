@@ -48,22 +48,26 @@ impl<F: Field> Verifier<F> {
     /// Verifies the polynomial and returns it if successful, otherwise returns None
     pub fn verify_and_challenge(
         &mut self,
-        prover: &mut crate::prover::Prover<F>,
+        poly: &UniSparsePolynomial<F>,
         variable_index: usize,
         expected_sum: &F,
-    ) -> Option<UniSparsePolynomial<F>> {
+    ) -> Option<F> {
         // Choose a random challenge value
         self.choose_challenge();
 
-        // Ask the prover to send the reduced polynomial
-        let reduced_polynomial = prover.send_polynomial(self, variable_index);
+        // Reduced polynomial form the prover
+        let reduced_polynomial = poly;
 
         // Output the reduced polynomial for debugging purposes
         println!("Reduced Polynomial: {:?}", reduced_polynomial);
 
         // Verify the reduced polynomial
         if self.verify_polynomial(&reduced_polynomial, expected_sum) {
-            Some(reduced_polynomial)
+            Some(
+                reduced_polynomial
+                    .clone()
+                    .evaluate(&self.challenge_values[variable_index]),
+            )
         } else {
             println!("Verification failed");
             None

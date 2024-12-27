@@ -23,26 +23,31 @@ mod tests {
         println!("Generated Polynomial: {:?}", prover.polynomial);
 
         // Step 2: Prover calculates the sum over all inputs
-        let mut sum = prover.sum_over_all_inputs();
+        let sum = prover.sum_over_all_inputs();
         println!("Prover calculated sum: {:?}", sum);
 
         let num_variables = prover.num_variables;
 
         // Step 3: Verifier sets the expected sum
         let mut verifier = Verifier::new(num_variables, sum);
+        let mut eval = sum;
 
         // Step 4: Perform Sumcheck protocol rounds
         for i in 0..num_variables {
-            if let Some(ith_poly) = verifier.verify_and_challenge(&mut prover, i, &sum) {
+            println!("challenge: {:?}", verifier.challenge_values);
+            let i_poly = prover.reduce_to_univariate(i, &verifier.challenge_values);
+            if let Some(current_eval) = verifier.verify_and_challenge(&i_poly, i, &eval) {
                 println!("Round {} succeeded", i + 1);
-                sum = ith_poly.evaluate(&verifier.challenge_values[i])
+                // println!("challenge: {:?}", verifier.challenge_values);
+                // sum = ith_poly.evaluate(&verifier.challenge_values[i])
+                eval = current_eval;
             } else {
-                assert!(false, "Verification failed at round {}", i + 1);
+                assert!(false, "Verification failed at round {}", i);
             }
         }
         let init_poly = prover.polynomial;
         assert!(
-            init_poly.evaluate(&verifier.challenge_values) == sum,
+            init_poly.evaluate(&verifier.challenge_values) == eval,
             "Initial evaluated value does not match the sum."
         );
     }
@@ -61,6 +66,7 @@ mod tests {
 
         // Create a Prover instance using the predefined polynomial
         let mut prover = Prover::<Fq>::new_with_polynomial(poly);
+        let num_variables = max_variables(&prover.polynomial);
 
         println!(
             "Prover initialized with Polynomial: {:?}",
@@ -68,27 +74,29 @@ mod tests {
         );
 
         // Step 2: Prover calculates the sum over all inputs
-        let mut sum = prover.sum_over_all_inputs();
+        let sum = prover.sum_over_all_inputs();
         println!("Prover calculated sum: {:?}", sum);
 
         // Step 3: Verifier sets the expected sum
-        let mut verifier = Verifier::new(max_variables(&prover.polynomial), sum);
+        let mut verifier = Verifier::new(num_variables, sum);
+        let mut eval = sum;
 
         // Step 4: Perform Sumcheck protocol rounds
-        let num_variables = max_variables(&prover.polynomial);
-        // let mut ith_poly: UniSparsePolynomial<F>;
         for i in 0..num_variables {
-            if let Some(ith_poly) = verifier.verify_and_challenge(&mut prover, i, &sum) {
+            println!("challenge: {:?}", verifier.challenge_values);
+            let i_poly = prover.reduce_to_univariate(i, &verifier.challenge_values);
+            if let Some(current_eval) = verifier.verify_and_challenge(&i_poly, i, &eval) {
                 println!("Round {} succeeded", i + 1);
-                sum = ith_poly.evaluate(&verifier.challenge_values[i])
+                // println!("challenge: {:?}", verifier.challenge_values);
+                // sum = ith_poly.evaluate(&verifier.challenge_values[i])
+                eval = current_eval;
             } else {
-                println!("Verification failed at round {}", i + 1);
-                assert!(false, "Verification failed at round {}", i + 1);
+                assert!(false, "Verification failed at round {}", i);
             }
         }
         let init_poly = prover.polynomial;
         assert!(
-            init_poly.evaluate(&verifier.challenge_values) == sum,
+            init_poly.evaluate(&verifier.challenge_values) == eval,
             "Initial evaluated value does not match the sum."
         );
     }
