@@ -114,9 +114,6 @@ impl<F: Field> Prover<F> {
         // Initialize the accumulator for the sum of all evaluations
         let mut sum = F::zero();
 
-        // Track the number of combinations evaluated
-        let mut count = 0;
-
         // Iterate over each combination of inputs (0s and 1s)
         for input in combinations {
             // Evaluate the polynomial at the current input and add it to the sum
@@ -126,18 +123,12 @@ impl<F: Field> Prover<F> {
 
             // Debugging information
             println!(
-                "Combination {}: input = {:?}, evaluation = {:?}, sum = {:?}",
-                count, input, evaluation, sum
+                "Input = {:?}, evaluation = {:?}, sum = {:?}",
+                input, evaluation, sum
             );
-
-            count += 1;
         }
-
         // Final debug information
-        println!(
-            "Total combinations evaluated: {}, Final sum: {:?}",
-            count, sum
-        );
+        println!("Final sum: {:?}", sum);
 
         // Return the final sum
         sum

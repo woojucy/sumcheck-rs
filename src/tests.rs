@@ -37,13 +37,14 @@ mod tests {
                 println!("Round {} succeeded", i + 1);
                 sum = ith_poly.evaluate(&verifier.challenge_values[i])
             } else {
-                println!("Verification failed at round {}", i + 1);
                 assert!(false, "Verification failed at round {}", i + 1);
             }
         }
-
-        // If the test completes without failure, the protocol works as expected
-        assert!(true);
+        let init_poly = prover.polynomial;
+        assert!(
+            init_poly.evaluate(&verifier.challenge_values) == sum,
+            "Initial evaluated value does not match the sum."
+        );
     }
 
     #[test]
@@ -85,8 +86,10 @@ mod tests {
                 assert!(false, "Verification failed at round {}", i + 1);
             }
         }
-
-        // If the test completes without failure, the protocol works as expected
-        assert!(true);
+        let init_poly = prover.polynomial;
+        assert!(
+            init_poly.evaluate(&verifier.challenge_values) == sum,
+            "Initial evaluated value does not match the sum."
+        );
     }
 }
