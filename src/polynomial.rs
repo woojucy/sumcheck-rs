@@ -48,7 +48,6 @@ fn count_active_variables<F: Field>(terms: &[(F, SparseTerm)]) -> usize {
             }
         }
     }
-
     // Return the maximum index + 1 to represent the number of variables
     max_variable_index + 1
 }
