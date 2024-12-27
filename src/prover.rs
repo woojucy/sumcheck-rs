@@ -1,4 +1,4 @@
-use crate::{polynomial::generate_random_polynomial, verifier::Verifier};
+use crate::polynomial::generate_random_polynomial;
 use ark_ff::Field;
 use ark_poly::{
     multivariate::{SparsePolynomial, SparseTerm},
@@ -33,23 +33,25 @@ impl<F: Field> Prover<F> {
         }
     }
 
-    fn reduce_to_univariate(
+    pub fn reduce_to_univariate(
         &mut self,
         target_var: usize,
-        randoms: Vec<F>,
+        randoms: &Vec<F>,
     ) -> UniSparsePolynomial<F> {
         let mut coefficients = vec![F::zero(); self.polynomial.degree() + 1];
         let v = self.num_variables;
 
+        let round = target_var + 1;
+
         // Iterate over all input combinations for the remaining variables
-        for i in 0..2i32.pow((v - target_var - 1) as u32) {
+        for i in 0..2i32.pow((v - round) as u32) {
             let mut inputs: Vec<F> = vec![];
             // Add inputs from previous rounds (randoms)
-            inputs.extend(&randoms);
+            inputs.extend(randoms);
 
             // Generate inputs for the remaining variables
             let mut counter = i;
-            for _ in 0..(v - target_var - 1) {
+            for _ in 0..(v - round) {
                 if counter % 2 == 0 {
                     inputs.push(F::from(0_u32));
                 } else {
@@ -57,6 +59,9 @@ impl<F: Field> Prover<F> {
                 }
                 counter /= 2;
             }
+
+            println!("input: {:?}", inputs);
+            println!("round: {:?}", round);
 
             // Evaluate the polynomial at the current input combination
             for (coeff, term) in &self.polynomial.terms {
@@ -66,12 +71,14 @@ impl<F: Field> Prover<F> {
 
                 // Check each term's variables to determine if target_var is included
                 for (var_index, var_degree) in term.iter() {
-                    if *var_index == target_var {
+                    if *var_index == (target_var) {
                         degree_target = *var_degree;
                         has_target_var = true; // Mark that target_var is in the term
+                    } else if *var_index < (target_var) {
+                        c_acc *= inputs[*var_index].pow([*var_degree as u64]);
                     } else {
                         // Process variables other than target_var
-                        c_acc *= inputs[*var_index].pow([*var_degree as u64]);
+                        c_acc *= inputs[*var_index - 1].pow([*var_degree as u64]);
                     }
                 }
 
@@ -95,15 +102,6 @@ impl<F: Field> Prover<F> {
         UniSparsePolynomial::from_coefficients_vec(coefficients.into_iter().enumerate().collect())
     }
 
-    /// Sends the reduced univariate polynomial for the current variable to the Verifier
-    pub fn send_polynomial(
-        &mut self,
-        verifier: &Verifier<F>,
-        variable_index: usize,
-    ) -> UniSparsePolynomial<F> {
-        self.reduce_to_univariate(variable_index, verifier.challenge_values.clone())
-    }
-
     /// Calculates the sum of the polynomial over all possible input combinations of 0 and 1
     pub fn sum_over_all_inputs(&self) -> F {
         println!("Debug: self.num_variables = {}", self.num_variables);
@@ -114,6 +112,9 @@ impl<F: Field> Prover<F> {
         // Initialize the accumulator for the sum of all evaluations
         let mut sum = F::zero();
 
+        // Track the number of combinations evaluated
+        let mut count = 0;
+
         // Iterate over each combination of inputs (0s and 1s)
         for input in combinations {
             // Evaluate the polynomial at the current input and add it to the sum
@@ -123,12 +124,18 @@ impl<F: Field> Prover<F> {
 
             // Debugging information
             println!(
-                "Input = {:?}, evaluation = {:?}, sum = {:?}",
-                input, evaluation, sum
+                "Combination {}: input = {:?}, evaluation = {:?}, sum = {:?}",
+                count, input, evaluation, sum
             );
+
+            count += 1;
         }
+
         // Final debug information
-        println!("Final sum: {:?}", sum);
+        println!(
+            "Total combinations evaluated: {}, Final sum: {:?}",
+            count, sum
+        );
 
         // Return the final sum
         sum

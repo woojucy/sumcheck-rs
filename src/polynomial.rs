@@ -36,6 +36,7 @@ fn generate_term_from_var_index(num_variables: usize, max_degree: usize) -> Vec<
     vars
 }
 
+// active_variables means that maximum variable index + 1
 fn count_active_variables<F: Field>(terms: &[(F, SparseTerm)]) -> usize {
     let mut max_variable_index = 0; // To track the maximum variable index
 
@@ -48,6 +49,7 @@ fn count_active_variables<F: Field>(terms: &[(F, SparseTerm)]) -> usize {
             }
         }
     }
+
     // Return the maximum index + 1 to represent the number of variables
     max_variable_index + 1
 }
